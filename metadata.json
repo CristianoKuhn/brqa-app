@@ -1,0 +1,8 @@
+{
+  "name": "IA BRQA",
+  "description": "Sistema inteligente de orquestração de agendamentos técnicos e comerciais baseado em regras de SLA, logística geográfica e capacidade operacional.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ]
+}
