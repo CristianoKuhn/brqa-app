@@ -9,24 +9,50 @@
 
   <h1>BRQA - App ativo</h1>
   <p>Se você está vendo isso, o GitHub Pages está funcionando.</p>
-<button onclick="testarAPI()">Testar API</button>
-<pre id="resultado"></pre>
 
-<script>
-  async function testarAPI() {
-    const url = "https://script.google.com/macros/s/AKfycby-pvQ3Zmep2eCELIaMc90dvdJxGTILu-wj91J3ImQpBY-ZAVyXI-oTbSLZXv12wEDbNg/exec";
+  <hr>
 
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      document.getElementById("resultado").textContent =
-        JSON.stringify(data, null, 2);
-    } catch (e) {
-      document.getElementById("resultado").textContent =
-        "Erro ao conectar: " + e;
+  <button onclick="testarAPI()">Testar API</button>
+  <pre id="resultado"></pre>
+
+  <hr>
+
+  <h2>Aniversariantes BRQA</h2>
+  <button onclick="carregarAniversariantes()">Carregar Aniversariantes</button>
+  <ul id="lista"></ul>
+
+  <script>
+    const API_BASE = "https://script.google.com/macros/s/AKfycby-pvQ3Zmep2eCELIaMc90dvdJxGTILu-wj91J3ImQpBY-ZAVyXI-oTbSLZXv12wEDbNg/exec";
+
+    async function testarAPI() {
+      try {
+        const res = await fetch(API_BASE);
+        const data = await res.json();
+        document.getElementById("resultado").textContent =
+          JSON.stringify(data, null, 2);
+      } catch (e) {
+        document.getElementById("resultado").textContent =
+          "Erro ao conectar: " + e;
+      }
     }
-  }
-</script>
+
+    async function carregarAniversariantes() {
+      const url = API_BASE + "?action=listarAniversariantes";
+      const res = await fetch(url);
+      const dados = await res.json();
+
+      const ul = document.getElementById("lista");
+      ul.innerHTML = "";
+
+      dados.forEach(pessoa => {
+        if (pessoa.ativo) {
+          const li = document.createElement("li");
+          li.textContent = `${pessoa.nome} — ${pessoa.data_aniversario}`;
+          ul.appendChild(li);
+        }
+      });
+    }
+  </script>
 
 </body>
 </html>
