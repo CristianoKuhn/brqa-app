@@ -9,6 +9,24 @@
 
   <h1>BRQA - App ativo</h1>
   <p>Se você está vendo isso, o GitHub Pages está funcionando.</p>
+<button onclick="testarAPI()">Testar API</button>
+<pre id="resultado"></pre>
+
+<script>
+  async function testarAPI() {
+    const url = "https://script.google.com/macros/s/AKfycby-pvQ3Zmep2eCELIaMc90dvdJxGTILu-wj91J3ImQpBY-ZAVyXI-oTbSLZXv12wEDbNg/exec";
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      document.getElementById("resultado").textContent =
+        JSON.stringify(data, null, 2);
+    } catch (e) {
+      document.getElementById("resultado").textContent =
+        "Erro ao conectar: " + e;
+    }
+  }
+</script>
 
 </body>
 </html>
