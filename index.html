@@ -87,6 +87,13 @@
 
   <!-- APP -->
   <script type="module">
+    const genAI = new GoogleGenerativeAI("SUA_API_KEY_AQUI");
+
+async function perguntarIA(pergunta) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const result = await model.generateContent(pergunta);
+  return result.response.text();
+}
     import React from "react";
     import { createRoot } from "react-dom/client";
     import { GoogleGenerativeAI } from "@google/genai";
