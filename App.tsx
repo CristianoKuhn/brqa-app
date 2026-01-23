@@ -9,9 +9,10 @@ import {
   Settings, Bell, Newspaper, Save, ListRestart, ChevronRight, Clock,
   Edit3, StickyNote, ChevronDown, ChevronUp, Maximize2, Minimize2,
   ZoomIn, Download, Eye, Cake, PartyPopper, UserPlus, Calendar, Check,
-  Gift, BellRing
+  Gift, BellRing, CloudSync, Cloud
 } from 'lucide-react';
 import { sendMessageToAi, generateAudioTips, ChatMessage } from './geminiService';
+import { supabase } from './supabaseClient';
 
 type DashboardTab = 'assistente' | 'dashboard' | 'jornal' | 'aniversariantes';
 
@@ -178,6 +179,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('assistente');
   const [isVibrating, setIsVibrating] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [isCloudLoading, setIsCloudLoading] = useState(true);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Aniversariantes Form
   const [empName, setEmpName] = useState('');
@@ -192,7 +195,7 @@ const App: React.FC = () => {
   const [mascotMonthAlert, setMascotMonthAlert] = useState<string | undefined>();
 
   const [state, setState] = useState<PersistedState>(() => {
-    const saved = localStorage.getItem('brqa_v15_state');
+    const saved = localStorage.getItem('brqa_v16_state');
     if (saved) return JSON.parse(saved);
     return {
       assistente: { chats: [{ id: 's1', name: 'Assistente Inicial', createdAt: Date.now(), messages: [{ id: 'w1', role: 'model', parts: [{ text: '🤖 Assistente BRQA online.\nAnálise operacional centralizada e pronta.' }] }] }], currentChatId: 's1' },
@@ -215,8 +218,61 @@ const App: React.FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // --- SUPABASE PERSISTENCE LAYER ---
+
+  // Load from Supabase on start
   useEffect(() => {
-    localStorage.setItem('brqa_v15_state', JSON.stringify(state));
+    const loadState = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('brqa_storage')
+          .select('content')
+          .eq('id', 'app_data')
+          .single();
+
+        if (error) {
+          console.warn("Could not load from Supabase (maybe table doesn't exist yet?):", error.message);
+        } else if (data?.content) {
+          setState(data.content as PersistedState);
+          setLastSyncTime(new Date());
+        }
+      } catch (err) {
+        console.error("Supabase load error:", err);
+      } finally {
+        setIsCloudLoading(false);
+      }
+    };
+    loadState();
+  }, []);
+
+  // Sync to Supabase and LocalStorage on state change
+  useEffect(() => {
+    if (isCloudLoading) return; // Prevent overwriting cloud data with default state during initial load
+
+    const saveState = async () => {
+      // Local Backup
+      localStorage.setItem('brqa_v16_state', JSON.stringify(state));
+
+      // Cloud Save
+      try {
+        const { error } = await supabase
+          .from('brqa_storage')
+          .upsert({ id: 'app_data', content: state });
+        
+        if (error) console.error("Cloud sync failed:", error.message);
+        else setLastSyncTime(new Date());
+      } catch (err) {
+        console.error("Supabase save error:", err);
+      }
+    };
+
+    const timeout = setTimeout(saveState, 1000); // Debounce saves
+    return () => clearTimeout(timeout);
+  }, [state, isCloudLoading]);
+
+  // --- END SUPABASE LAYER ---
+
+  useEffect(() => {
     checkBirthdays();
   }, [state.aniversariantes]);
 
@@ -346,6 +402,18 @@ const App: React.FC = () => {
 
   const triggerScreenVibration = () => { setIsVibrating(true); setTimeout(() => setIsVibrating(false), 1000); };
 
+  if (isCloudLoading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white gap-6">
+        <CloudSync size={64} className="text-blue-500 animate-spin" />
+        <div className="text-center">
+          <h2 className="text-2xl font-black uppercase tracking-widest">Sincronizando Cloud BRQA</h2>
+          <p className="text-slate-400 mt-2 font-medium">Recuperando registros do Supabase...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex h-screen bg-slate-50 text-slate-900 overflow-hidden transition-all duration-300 ${isVibrating ? 'animate-screen-shake' : ''}`}>
       {enlargedImage && <Lightbox src={enlargedImage} onClose={() => setEnlargedImage(null)} />}
@@ -358,6 +426,10 @@ const App: React.FC = () => {
           <button onClick={() => setActiveTab('dashboard')} className={`p-4 rounded-xl transition-all relative group ${activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}><BarChart3 size={24} /></button>
           <button onClick={() => setActiveTab('jornal')} className={`p-4 rounded-xl transition-all relative group ${activeTab === 'jornal' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}><Newspaper size={24} /></button>
           <button onClick={() => setActiveTab('aniversariantes')} className={`p-4 rounded-xl transition-all relative group ${activeTab === 'aniversariantes' ? 'bg-pink-500 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Cake size={24} /></button>
+        </div>
+        <div className="mt-auto flex flex-col items-center gap-2 pb-4">
+           <div className={`w-2 h-2 rounded-full ${lastSyncTime ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500'}`}></div>
+           <Cloud size={16} className="text-slate-700" />
         </div>
       </nav>
 
